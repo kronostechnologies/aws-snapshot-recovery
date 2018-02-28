@@ -1,0 +1,7 @@
+#!/bin/bash
+CURRENT_PATH="$(realpath $0)"
+CURRENT_PATH=${CURRENT_PATH%/*}
+PYTHON_MODULES="${CURRENT_PATH}/../python_modules:${CURRENT_PATH}/../"
+export PYTHONPATH="${PYTHONPATH}:${PYTHON_MODULES}"
+
+$CURRENT_PATH/prod "$@"

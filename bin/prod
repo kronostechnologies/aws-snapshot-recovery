@@ -1,0 +1,239 @@
+#!/usr/bin/python3
+
+import sys
+import os
+import boto3
+import botocore
+import argparse
+import datetime
+import yaml
+import pathlib
+import logging
+import getpass
+import time
+import signal
+
+aws_ec2 = boto3.client('ec2')
+aws_ec2_resource = boto3.resource('ec2')
+aws_sts = boto3.client('sts')
+
+user_account_id = aws_sts.get_caller_identity()['Account']
+
+
+config = {
+  'filter_date_tagkey': 'EbsBackup_DatetimeUTC',
+  'filter_name_tagkey': 'Name',
+  'ssh_key_pair': getpass.getuser(),
+  'ec2_security_group_id': '',
+  'ec2_subnet_id': '',
+  'ec2__instance_type': 't2-micro'
+}
+
+
+def parse_args():
+  parser = argparse.ArgumentParser(description='Amazon Snapshot Recovery Tool')
+  parser.add_argument('-d', '--date', metavar="DATE", default='', type=str, help='date of the snapshot you are searching for')
+  parser.add_argument('-n', '--name', metavar="NAME", default='', type=str, help='name of the snapshot you are searching for')
+  parser.add_argument('-r', '--recover', action='store_true', help='recover the given snapshot')
+  parser.add_argument('--dry-run', action='store_true', help='do not create any aws resource however, aws query are still executed')
+  parser.add_argument('-v', '--verbose', action='store_true', help='increase output verbosity')
+  parser.add_argument('--debug', action='store_true', help='greatly increase output verbosity')
+  parser.add_argument('--filter-name-tagkey', metavar="TAGNAME", help='set the tag key to use when filtering with --name')
+  parser.add_argument('--filter-date-tagkey', metavar="TAGNAME", help='set the tag key to use when filtering with --date')
+  parser.add_argument('--ec2-security-group-id', metavar="ID", help='set the ec2 security group id')
+  parser.add_argument('--ec2-subnet-id', metavar="ID", help='set the ec2 subnet id')
+  parser.add_argument('--ec2-instance-type', metavar="TYPE", help='set the ec2 instance type')
+  parser.add_argument('--ssh-key-pair', metavar="NAME", help='specify the ssh key pair to use')
+  return parser.parse_args()
+
+
+def parse_configuration_file(config):
+  logging.debug('parsing configuration file')
+  configpath = pathlib.PosixPath('~/.config/aws-snapshot-recovery.yaml').expanduser()
+  if configpath.exists():
+    with open(configpath, 'r') as stream:
+      config.update(yaml.load(stream))
+      logging.debug('configuration file "{}" exist and has been parsed'.format(configpath))
+  else:
+    logging.info('configuration file "{}" does not exist'.format(configpath))
+  return config
+
+def parse_configuration_environment(config):
+  logging.debug('parsing environment variables')
+
+  def merge_environ_into_config(environment_variable, config_key):
+    if environment_variable in os.environ:
+      logging.debug('environment variable "{}" is set and will be used'.format(environment_variable))
+      config[config_key] = os.environ[environment_variable]
+
+  merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_FILTER_DATE_TAGKEY', 'filter_date_tagkey')
+  merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_FILTER_NAME_TAGKEY', 'filter_name_tagkey')
+  merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_SSH_KEY_PAIR', 'ssh_key_pair')
+  merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_SECURITY_GROUP_ID', 'ec2_security_group_id')
+  merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_SUBNET_ID', 'ec2_subnet_id')
+  merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_INSTANCE_TYPE', 'ec2_instance_type')
+
+  return config
+
+def parse_configuration_cli(config):
+  if args.filter_date_tagkey:
+    config['filter_date_tagkey'] = args.filter_date_tagkey
+  if args.filter_name_tagkey:
+    config['filter_name_tagkey'] = args.filter_name_tagkey
+  if args.ssh_key_pair:
+    config['ssh_key_pair'] = args.ssh_key_pair
+  if args.ec2_subnet_id:
+    config['ec2_subnet_id'] = args.ec2_subnet_id
+  if args.ec2_security_group_id:
+    config['ec2_security_group_id'] = args.ec2_security_group_id
+  return config
+
+def get_latest_debian_ami_id():
+  amis = aws_ec2_resource.images.filter(
+    Filters=[
+      {'Name':'owner-id', 'Values':['379101102735']}
+    ]
+  )
+  return sorted(list(amis), key=lambda image:image.creation_date)[-1].id
+
+def fetch_snapshots(date='', name=''):
+  paginator = aws_ec2.get_paginator('describe_snapshots')
+  iterator = paginator.paginate(
+    Filters=[
+      { 'Name': 'tag:' + config['filter_name_tagkey'], 'Values': [name + '*'] },
+      { 'Name': 'tag:' + config['filter_date_tagkey'], 'Values': [date + '*'] },
+      { 'Name': 'status', 'Values': ['completed'] },
+      { 'Name': 'owner-id', 'Values': [user_account_id] }
+    ]
+  )
+  all_snapshots = []
+  for snapshots in iterator:
+    all_snapshots += snapshots['Snapshots']
+
+  return all_snapshots
+
+def show_snapshots(snapshots):
+  for snapshot in snapshots:
+    for tag in snapshot['Tags']:
+      if tag['Key'] == 'Name':
+        print("({}) ({} GiB) ({})".format(tag['Value'], snapshot['VolumeSize'], snapshot['SnapshotId']))
+
+def ssh_key_pair_exists(ssh_key_pair):
+  try:
+    aws_ec2.describe_key_pairs(KeyNames=[ssh_key_pair])
+  except botocore.exceptions.ClientError as e:
+    logging.debug('ERROR: Code:{}, Message:{}'.format(e.response['Error']['Code'], e.response['Error']['Message']))
+    return False
+  except:
+    raise
+ 
+  return True
+
+def create_instance(snapshot, ssh_key_pair):
+  instances = aws_ec2.run_instances(
+    DisableApiTermination=False,
+    InstanceInitiatedShutdownBehavior='terminate',
+    SecurityGroupIds=[config['ec2_security_group_id']] if config['ec2_security_group_id'] else [],
+    SubnetId=config['ec2_subnet_id'] if config['ec2_subnet_id'] else '',
+    BlockDeviceMappings=[
+        {
+            'DeviceName': 'xvdh',
+            'Ebs': {
+                'DeleteOnTermination': True,
+                'SnapshotId': snapshot['SnapshotId'],
+            },
+        },
+    ],
+    ImageId=get_latest_debian_ami_id(),
+    InstanceType='t2.micro', 
+    KeyName=ssh_key_pair,
+    MaxCount=1,
+    MinCount=1,
+    TagSpecifications=[{
+      'ResourceType': 'instance',
+      'Tags': [
+        {'Key': 'Name', 'Value': 'AwsSnapshotRecovery ({}) ({})'.format(ssh_key_pair, snapshot['SnapshotId'])},
+        {'Key': 'AwsSnapshotRecovery', 'Value': 'true'},
+        {'Key': 'AwsSnapshotRecovery_SnapshotId', 'Value': snapshot['SnapshotId']}
+      ]
+    }],
+    DryRun=args.dry_run
+  )
+  return instances['Instances'][0]
+
+def setup_logging(debug, verbose):
+  if debug:
+    logging.basicConfig(level=logging.DEBUG)
+  elif verbose:
+    logging.basicConfig(level=logging.INFO)
+  else:
+    logging.basicConfig(level=logging.WARN)
+
+d = datetime.datetime(2018, 2, 21)
+args = parse_args()
+setup_logging(args.debug, args.verbose)
+ 
+logging.debug('arguments:')
+logging.debug(args)
+
+# Parse configuration (environment and file)
+config = parse_configuration_file(config)
+config = parse_configuration_environment(config)
+config = parse_configuration_cli(config)
+logging.debug('configuration:')
+logging.debug(config)
+
+# Parse argument and execute stuff
+if args.recover:
+  logging.info("fetching snapshots based on date '{}' and name '{}'".format(args.date, args.name))
+  snapshots = fetch_snapshots(args.date, args.name)
+  if len(snapshots) > 1:
+    logging.error("your search criteria is not specific enough ('%i' snapshots were found)" % len(snapshots))
+    show_snapshots(snapshots)
+    exit(1)
+  elif len(snapshots) < 1:
+    logging.error("no snapshot found")
+    exit(1)
+  snapshot = snapshots[0]
+
+  logging.info("retrieving ssh key '{}'".format(config['ssh_key_pair']))
+  if not ssh_key_pair_exists(config['ssh_key_pair']):
+    logging.error('ssh key "{}" does not exist'.format(config['ssh_key_pair']))
+    logging.error('you need to add this ssh key to aws key pair')
+    exit(1)
+
+  logging.info('creating and starting instance from snapshot "{}"'.format(snapshot['SnapshotId']))
+  instance = create_instance(snapshot, config['ssh_key_pair'])  
+  instance_resource = boto3.resource('ec2').Instance(instance['InstanceId'])
+
+  logging.debug('registering SIGINT and SIGTERM signal')
+  def exit_gracefully(signum, frame):
+    print('terminating gracefully')
+    logging.info('terminating instance "{}"'.format(instance['InstanceId']))
+    aws_ec2.terminate_instances(InstanceIds=[instance['InstanceId']])
+    exit(0)
+
+  signal.signal(signal.SIGINT, exit_gracefully)
+  signal.signal(signal.SIGTERM, exit_gracefully)
+
+  print('please wait while recovering backup')
+  instance_resource.wait_until_running(
+    Filters=[{
+      'Name': 'instance-id',
+      'Values': [instance['InstanceId']]
+    }]
+  )
+  logging.info('instance created successfully')
+  instance = aws_ec2.describe_instances(InstanceIds=[instance['InstanceId']])['Reservations'][0]['Instances'][0]
+
+
+  logging.debug('printing out login information')
+  print('you can login with: "ssh admin@{ip} -i ~/.ssh/{key}.pem"'.format(ip=instance['PublicIpAddress'], key=config['ssh_key_pair']))
+  print('kill this script when done (ctrl+c)')
+
+  logging.debug('waiting for instance to be terminated')
+  signal.pause()
+  
+else:
+  snapshots = fetch_snapshots(args.date, args.name)
+  show_snapshots(snapshots)
