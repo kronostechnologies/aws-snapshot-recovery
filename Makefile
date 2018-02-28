@@ -4,10 +4,16 @@ python_modules:
 	mkdir python_modules
 	pip3 install -r requirements --target="./python_modules" --ignore-installed --system
 
+.PHONY: clean
 clean:
 	rm -rf python_modules
 	sudo rm -f /usr/local/bin/aws-snapshot-recovery
 
+.PHONY: docker
+docker:
+	docker build . -t kronostechnologies/aws-snapshot-recovery:latest
+
+.PHONY: dev
 dev: /usr/local/bin/aws-snapshot-recovery
 
 /usr/local/bin/aws-snapshot-recovery:
