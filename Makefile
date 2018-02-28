@@ -2,7 +2,7 @@ all: python_modules
 
 python_modules:
 	mkdir python_modules
-	pip3 install -r requirements.txt --target="./python_modules" --ignore-installed --system
+	pip3 install -r requirements --target="./python_modules" --ignore-installed --system
 
 clean:
 	rm -rf python_modules
