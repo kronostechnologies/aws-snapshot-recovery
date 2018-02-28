@@ -1,0 +1,27 @@
+#!/bin/bash
+
+VERSION='latest'
+
+if ! docker image inspect "kronostechnologies/aws-snapshot-recovery:${VERSION}" &> /dev/null; then
+  docker pull "kronostechnologies/aws-snapshot-recovery:${VERSION}"
+fi
+
+declare -a FLAGS=( --rm --read-only )
+
+if [[ -f "${HOME}/.config/aws-snapshot-recovery.yaml" ]]; then
+  FLAGS+=( -v "${HOME}/.config/aws-snapshot-recovery.yaml":/root/.config/aws-snapshot-recovery.yaml )
+fi
+
+if [[ -d "${HOME}/.aws" ]]; then
+  FLAGS+=( -v "${HOME}/.aws":/root/.aws )
+fi
+
+if [[ -t 1 ]]; then
+  FLAGS+=( --tty )
+fi
+
+if [[ -n "${AWS_PROFILE}" ]]; then
+  FLAGS+=( -e AWS_PROFILE="${AWS_PROFILE}" )
+fi
+
+docker run "${FLAGS[@]}" "kronostechnologies/aws-snapshot-recovery:${VERSION}" "$@"
