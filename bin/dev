@@ -4,4 +4,4 @@ CURRENT_PATH=${CURRENT_PATH%/*}
 PYTHON_MODULES="${CURRENT_PATH}/../python_modules:${CURRENT_PATH}/../"
 export PYTHONPATH="${PYTHONPATH}:${PYTHON_MODULES}"
 
-$CURRENT_PATH/prod "$@"
+$CURRENT_PATH/aws-snapshot-recovery "$@"
