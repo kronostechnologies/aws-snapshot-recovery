@@ -184,7 +184,7 @@ logging.debug('configuration:')
 logging.debug(config)
 
 # create aws clients and resources
-aws_ec2, aws_ec2_resource, aws_sts = setup_aws_clients(args.aws_profile)
+aws_ec2, aws_ec2_resource, aws_sts = setup_aws_clients(config['aws_profile'])
 
 # Parse argument and execute stuff
 if args.recover:
