@@ -45,7 +45,7 @@ def parse_configuration_file(config):
   logging.debug('parsing configuration file')
   configpath = pathlib.PosixPath('~/.config/aws-snapshot-recovery.yaml').expanduser()
   if configpath.exists():
-    with open(configpath, 'r') as stream:
+    with configpath.open() as stream:
       config.update(yaml.load(stream))
       logging.debug('configuration file "{}" exist and has been parsed'.format(configpath))
   else:
