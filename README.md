@@ -158,3 +158,23 @@ Below is an example policy which fairly restrict the script permission.
 ```
 
  > If you change filter tag key configuration, you need to change the policy accordingly
+
+## Release
+Assuming we are at version `1.0.0` and we want to release version `1.0.1`.
+```
+git checkout 1.0.0
+git checkout -b 1.0.1
+sed -i "s/:1.0.0/:1.0.1/g" Makefile
+sed -i "s/VERSION='1.0.0'/VERSION='1.0.1'/g"  bin/docker-aws-snapshot-recovery
+git commit -m "1.0.1"
+# Merge or cherry-pick whatever you need in this new version
+git merge master
+git tag -a 1.0.1 -m "1.0.1"
+git push --tags
+git checkout master && git branch -D 1.0.1 && git checkout 1.0.1
+```
+Once the tag is pushed, reach the [release page](https://github.com/kronostechnologies/aws-snapshot-recovery/releases) via github and click "draft a new release".
+1. Use the newly created tag (1.0.1 in this example) as the new version.
+2. The release title should be related to electronic parts. major version (2.0.0, 3.0.0, etc.) must have one word title e.g. "Diodes". Minor and Patch version must have two word with the first word being the major release version title e.g. Diodes Gunn. Second word must be related to first word electronic part.
+3. Describe what is in the new release
+4. Add two binaries: `bin/aws-snapshot-recovery` and `bin/docker-aws-snapshot-recovery`. Make sure you are using the binary of the new version by checkouting the newly created tag (`git checkout 1.0.1`).
