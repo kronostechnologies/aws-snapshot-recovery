@@ -23,5 +23,6 @@ fi
 if [[ -n "${AWS_PROFILE}" ]]; then
   FLAGS+=( -e AWS_PROFILE="${AWS_PROFILE}" )
 fi
+FLAGS+=( -e AWS_SNAPSHOT_RECOVERY_SSH_KEY_PAIR="${USER}" )
 
 docker run "${FLAGS[@]}" "kronostechnologies/aws-snapshot-recovery:${VERSION}" "$@"
