@@ -13,14 +13,8 @@ import getpass
 import time
 import signal
 
-aws_ec2 = boto3.client('ec2')
-aws_ec2_resource = boto3.resource('ec2')
-aws_sts = boto3.client('sts')
-
-user_account_id = aws_sts.get_caller_identity()['Account']
-
-
 config = {
+  'aws_profile': 'default',
   'filter_date_tagkey': 'EbsBackup_DatetimeUTC',
   'filter_name_tagkey': 'Name',
   'ssh_key_pair': getpass.getuser(),
@@ -28,7 +22,6 @@ config = {
   'ec2_subnet_id': '',
   'ec2__instance_type': 't2-micro'
 }
-
 
 def parse_args():
   parser = argparse.ArgumentParser(description='Amazon Snapshot Recovery Tool')
@@ -44,6 +37,7 @@ def parse_args():
   parser.add_argument('--ec2-subnet-id', metavar="ID", help='set the ec2 subnet id')
   parser.add_argument('--ec2-instance-type', metavar="TYPE", help='set the ec2 instance type')
   parser.add_argument('--ssh-key-pair', metavar="NAME", help='specify the ssh key pair to use')
+  parser.add_argument('--aws-profile', metavar="PROFILE", help='specify the aws profile to use')
   return parser.parse_args()
 
 
@@ -86,6 +80,8 @@ def parse_configuration_cli(config):
     config['ec2_subnet_id'] = args.ec2_subnet_id
   if args.ec2_security_group_id:
     config['ec2_security_group_id'] = args.ec2_security_group_id
+  if args.aws_profile:
+    config['aws_profile'] = args.aws_profile
   return config
 
 def get_latest_debian_ami_id():
@@ -103,7 +99,7 @@ def fetch_snapshots(date='', name=''):
       { 'Name': 'tag:' + config['filter_name_tagkey'], 'Values': [name + '*'] },
       { 'Name': 'tag:' + config['filter_date_tagkey'], 'Values': [date + '*'] },
       { 'Name': 'status', 'Values': ['completed'] },
-      { 'Name': 'owner-id', 'Values': [user_account_id] }
+      { 'Name': 'owner-id', 'Values': [aws_sts.get_caller_identity()['Account']] }
     ]
   )
   all_snapshots = []
@@ -169,7 +165,10 @@ def setup_logging(debug, verbose):
   else:
     logging.basicConfig(level=logging.WARN)
 
-d = datetime.datetime(2018, 2, 21)
+def setup_aws_clients(profile):
+  boto3.setup_default_session(profile_name=profile)
+  return (boto3.client('ec2'), boto3.resource('ec2'), boto3.client('sts'))
+
 args = parse_args()
 setup_logging(args.debug, args.verbose)
  
@@ -182,6 +181,9 @@ config = parse_configuration_environment(config)
 config = parse_configuration_cli(config)
 logging.debug('configuration:')
 logging.debug(config)
+
+# create aws clients and resources
+aws_ec2, aws_ec2_resource, aws_sts = setup_aws_clients(args.aws_profile)
 
 # Parse argument and execute stuff
 if args.recover:
