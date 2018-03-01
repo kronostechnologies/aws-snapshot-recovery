@@ -8,10 +8,12 @@ This tool is best used in conjunction with [terraform-modle-ebs-backup](https://
 ## Usage
 
 ```
-usage: aws-snapshot-recovery [-h] [-d DATE] [-n NAME] [-r] [--dry-run] [-v] [--debug]
-            [--filter-name-tagkey TAGNAME] [--filter-date-tagkey TAGNAME]
-            [--ec2-security-group-id ID] [--ec2-subnet-id ID]
-            [--ec2-instance-type TYPE] [--ssh-key-pair NAME]
+usage: aws-snapshot-recovery [-h] [-d DATE] [-n NAME] [-r] [--dry-run] [-v]
+                             [--debug] [--filter-name-tagkey TAGNAME]
+                             [--filter-date-tagkey TAGNAME]
+                             [--ec2-security-group-id ID] [--ec2-subnet-id ID]
+                             [--ec2-instance-type TYPE] [--ssh-key-pair NAME]
+                             [--aws-profile PROFILE]
 
 Amazon Snapshot Recovery Tool
 
@@ -34,6 +36,8 @@ optional arguments:
   --ec2-instance-type TYPE
                         set the ec2 instance type
   --ssh-key-pair NAME   specify the ssh key pair to use
+  --aws-profile PROFILE
+                        specify the aws profile to use
 ```
 
 ## Configuration
