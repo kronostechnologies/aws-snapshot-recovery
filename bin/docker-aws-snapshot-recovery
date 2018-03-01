@@ -17,7 +17,7 @@ if [[ -d "${HOME}/.aws" ]]; then
 fi
 
 if [[ -t 1 ]]; then
-  FLAGS+=( --tty )
+  FLAGS+=( --interactive --tty )
 fi
 
 if [[ -n "${AWS_PROFILE}" ]]; then

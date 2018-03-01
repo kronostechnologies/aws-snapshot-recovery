@@ -55,7 +55,6 @@ Define the ssh key pair to use when creating the ec2 instance. Default is the na
 Define the security group id. Default is the "default" security group.
 #### AWS_SNAPSHOT_RECOVERY_EC2_SUBNET_ID
 Define the ec2 subnet id. Default will use the default subnet of the default vpc.
- > If you specify a subnet id, it must exist in the specified availability zone
 #### AWS_SNAPSHOT_RECOVERY_EC2_INSTANCE_TYPE
 Define the ec2 instance type. Default is "t2-micro".
 
