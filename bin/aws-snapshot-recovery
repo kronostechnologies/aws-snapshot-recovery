@@ -66,6 +66,7 @@ def parse_configuration_environment(config):
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_SECURITY_GROUP_ID', 'ec2_security_group_id')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_SUBNET_ID', 'ec2_subnet_id')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_INSTANCE_TYPE', 'ec2_instance_type')
+  merge_environ_into_config('AWS_PROFILE', 'aws_profile')
 
   return config
 
