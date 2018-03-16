@@ -16,6 +16,10 @@ if [[ -d "${HOME}/.aws" ]]; then
   FLAGS+=( -v "${HOME}/.aws":/root/.aws )
 fi
 
+if [[ -d "${HOME}/.ssh" ]]; then
+  FLAGS+=( -v "${HOME}/.ssh":/root/.ssh )
+fi
+
 if [[ -t 1 ]]; then
   FLAGS+=( --interactive --tty )
 fi
