@@ -12,7 +12,8 @@ usage: aws-snapshot-recovery [-h] [-d DATE] [-n NAME] [-r] [--dry-run] [-v]
                              [--debug] [--filter-name-tagkey TAGNAME]
                              [--filter-date-tagkey TAGNAME]
                              [--ec2-security-group-id ID] [--ec2-subnet-id ID]
-                             [--ec2-instance-type TYPE] [--ssh-key-pair NAME]
+                             [--ec2-instance-type TYPE]
+                             [--ssh-public-key PUBLIC_KEY]
                              [--aws-profile PROFILE]
 
 Amazon Snapshot Recovery Tool
@@ -35,7 +36,8 @@ optional arguments:
   --ec2-subnet-id ID    set the ec2 subnet id
   --ec2-instance-type TYPE
                         set the ec2 instance type
-  --ssh-key-pair NAME   specify the ssh key pair to use
+  --ssh-public-key PUBLIC_KEY
+                        specify the ssh public key to use for login
   --aws-profile PROFILE
                         specify the aws profile to use
 ```
@@ -49,8 +51,8 @@ Environment variables are directly connected to their yaml configuration file co
 Define the tag key used to filter on snapshot date. Default is "EbsBackup_DatetimeUTC"
 #### AWS_SNAPSHOT_RECOVERY_FILTER_NAME_TAGKEY
 Define the tag key used to filter on the snapshot name. Default is "Name".
-#### AWS_SNAPSHOT_RECOVERY_SSH_KEY_PAIR
-Define the ssh key pair to use when creating the ec2 instance. Default is the name of the current user.
+#### AWS_SNAPSHOT_RECOVERY_SSH_PUBLIC_KEY
+Define the ssh public key to use when creating the ec2 instance. Default is `/home/${USER}/.ssh/${USER}.pem.pub`.
 #### AWS_SNAPSHOT_RECOVERY_EC2_SECURITY_GROUP_ID
 Define the security group id. Default is the "default" security group.
 #### AWS_SNAPSHOT_RECOVERY_EC2_SUBNET_ID
@@ -65,7 +67,7 @@ Example yaml file :
 ```
 filter_date_tagkey: EbsBackup_DatetimeUTC
 filter_name_tagkey: Name
-ssh_key_pair: username
+ssh_public_key: /home/user/.ssh/key.pub
 ec2_security_group_id: 'sg-2afa5263'
 ec2_subnet_id: 'subnet-39175'
 ec2__instance_type: 't2-micro'
@@ -130,7 +132,6 @@ Below is an example policy which fairly restrict the script permission.
             "Action": "ec2:RunInstances",
             "Resource": [
                 "arn:aws:ec2:*:*:subnet/*",
-                "arn:aws:ec2:*:*:key-pair/*",
                 "arn:aws:ec2:*:*:instance/*",
                 "arn:aws:ec2:*::snapshot/*",
                 "arn:aws:ec2:*:*:volume/*",
