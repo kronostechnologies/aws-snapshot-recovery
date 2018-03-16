@@ -12,7 +12,8 @@ usage: aws-snapshot-recovery [-h] [-d DATE] [-n NAME] [-r] [--dry-run] [-v]
                              [--debug] [--filter-name-tagkey TAGNAME]
                              [--filter-date-tagkey TAGNAME]
                              [--ec2-security-group-id ID] [--ec2-subnet-id ID]
-                             [--ec2-instance-type TYPE] [--ssh-key-pair NAME]
+                             [--ec2-instance-type TYPE]
+                             [--ssh-public-key PUBLIC_KEY]
                              [--aws-profile PROFILE]
 
 Amazon Snapshot Recovery Tool
@@ -35,7 +36,8 @@ optional arguments:
   --ec2-subnet-id ID    set the ec2 subnet id
   --ec2-instance-type TYPE
                         set the ec2 instance type
-  --ssh-key-pair NAME   specify the ssh key pair to use
+  --ssh-public-key PUBLIC_KEY
+                        specify the ssh public key to use for login
   --aws-profile PROFILE
                         specify the aws profile to use
 ```
@@ -49,8 +51,8 @@ Environment variables are directly connected to their yaml configuration file co
 Define the tag key used to filter on snapshot date. Default is "EbsBackup_DatetimeUTC"
 #### AWS_SNAPSHOT_RECOVERY_FILTER_NAME_TAGKEY
 Define the tag key used to filter on the snapshot name. Default is "Name".
-#### AWS_SNAPSHOT_RECOVERY_SSH_KEY_PAIR
-Define the ssh key pair to use when creating the ec2 instance. Default is the name of the current user.
+#### AWS_SNAPSHOT_RECOVERY_SSH_PUBLIC_KEY
+Define the ssh public key to use when creating the ec2 instance. Default is `/home/${USER}/.ssh/${USER}.pem.pub`.
 #### AWS_SNAPSHOT_RECOVERY_EC2_SECURITY_GROUP_ID
 Define the security group id. Default is the "default" security group.
 #### AWS_SNAPSHOT_RECOVERY_EC2_SUBNET_ID
@@ -65,7 +67,7 @@ Example yaml file :
 ```
 filter_date_tagkey: EbsBackup_DatetimeUTC
 filter_name_tagkey: Name
-ssh_key_pair: username
+ssh_public_key: /home/user/.ssh/key.pub
 ec2_security_group_id: 'sg-2afa5263'
 ec2_subnet_id: 'subnet-39175'
 ec2__instance_type: 't2-micro'
@@ -130,7 +132,6 @@ Below is an example policy which fairly restrict the script permission.
             "Action": "ec2:RunInstances",
             "Resource": [
                 "arn:aws:ec2:*:*:subnet/*",
-                "arn:aws:ec2:*:*:key-pair/*",
                 "arn:aws:ec2:*:*:instance/*",
                 "arn:aws:ec2:*::snapshot/*",
                 "arn:aws:ec2:*:*:volume/*",
@@ -158,3 +159,23 @@ Below is an example policy which fairly restrict the script permission.
 ```
 
  > If you change filter tag key configuration, you need to change the policy accordingly
+
+## Release
+Assuming we are at version `1.0.0` and we want to release version `1.0.1`.
+```
+git checkout 1.0.0
+git checkout -b 1.0.1
+sed -i "s/:1.0.0/:1.0.1/g" Makefile
+sed -i "s/VERSION='1.0.0'/VERSION='1.0.1'/g"  bin/docker-aws-snapshot-recovery
+git commit -m "1.0.1"
+# Merge or cherry-pick whatever you need in this new version
+git merge master
+git tag -a 1.0.1 -m "1.0.1"
+git push --tags
+git checkout master && git branch -D 1.0.1 && git checkout 1.0.1
+```
+Once the tag is pushed, reach the [release page](https://github.com/kronostechnologies/aws-snapshot-recovery/releases) via github and click "draft a new release".
+1. Use the newly created tag (1.0.1 in this example) as the new version.
+2. The release title should be related to electronic parts. major version (2.0.0, 3.0.0, etc.) must have one word title e.g. "Diodes". Minor and Patch version must have two word with the first word being the major release version title e.g. Diodes Gunn. Second word must be related to first word electronic part.
+3. Describe what is in the new release
+4. Add two binaries: `bin/aws-snapshot-recovery` and `bin/docker-aws-snapshot-recovery`. Make sure you are using the binary of the new version by checkouting the newly created tag (`git checkout 1.0.1`).
