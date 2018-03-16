@@ -167,6 +167,7 @@ git checkout 1.0.0
 git checkout -b 1.0.1
 sed -i "s/:1.0.0/:1.0.1/g" Makefile
 sed -i "s/VERSION='1.0.0'/VERSION='1.0.1'/g"  bin/docker-aws-snapshot-recovery
+git add .
 git commit -m "1.0.1"
 # Merge or cherry-pick whatever you need in this new version
 git merge master
