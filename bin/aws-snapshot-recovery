@@ -17,7 +17,7 @@ config = {
   'aws_profile': 'default',
   'filter_date_tagkey': 'EbsBackup_DatetimeUTC',
   'filter_name_tagkey': 'Name',
-  'ssh_key_pair': getpass.getuser(),
+  'ssh_public_key': '/home/{0}/.ssh/{0}.pem.pub'.format(getpass.getuser()),
   'ec2_security_group_id': '',
   'ec2_subnet_id': '',
   'ec2__instance_type': 't2-micro'
@@ -36,7 +36,7 @@ def parse_args():
   parser.add_argument('--ec2-security-group-id', metavar="ID", help='set the ec2 security group id')
   parser.add_argument('--ec2-subnet-id', metavar="ID", help='set the ec2 subnet id')
   parser.add_argument('--ec2-instance-type', metavar="TYPE", help='set the ec2 instance type')
-  parser.add_argument('--ssh-key-pair', metavar="NAME", help='specify the ssh key pair to use')
+  parser.add_argument('--ssh-public-key', metavar="PUBLIC_KEY", help='specify the ssh public key to use for login')
   parser.add_argument('--aws-profile', metavar="PROFILE", help='specify the aws profile to use')
   return parser.parse_args()
 
@@ -62,7 +62,7 @@ def parse_configuration_environment(config):
 
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_FILTER_DATE_TAGKEY', 'filter_date_tagkey')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_FILTER_NAME_TAGKEY', 'filter_name_tagkey')
-  merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_SSH_KEY_PAIR', 'ssh_key_pair')
+  merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_SSH_PUBLIC_KEY', 'ssh_public_key')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_SECURITY_GROUP_ID', 'ec2_security_group_id')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_SUBNET_ID', 'ec2_subnet_id')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_INSTANCE_TYPE', 'ec2_instance_type')
@@ -75,8 +75,8 @@ def parse_configuration_cli(config):
     config['filter_date_tagkey'] = args.filter_date_tagkey
   if args.filter_name_tagkey:
     config['filter_name_tagkey'] = args.filter_name_tagkey
-  if args.ssh_key_pair:
-    config['ssh_key_pair'] = args.ssh_key_pair
+  if args.ssh_public_key:
+    config['ssh_public_key'] = args.ssh_public_key
   if args.ec2_subnet_id:
     config['ec2_subnet_id'] = args.ec2_subnet_id
   if args.ec2_security_group_id:
@@ -115,18 +115,11 @@ def show_snapshots(snapshots):
       if tag['Key'] == 'Name':
         print("({}) ({} GiB) ({})".format(tag['Value'], snapshot['VolumeSize'], snapshot['SnapshotId']))
 
-def ssh_key_pair_exists(ssh_key_pair):
-  try:
-    aws_ec2.describe_key_pairs(KeyNames=[ssh_key_pair])
-  except botocore.exceptions.ClientError as e:
-    logging.debug('ERROR: Code:{}, Message:{}'.format(e.response['Error']['Code'], e.response['Error']['Message']))
-    return False
-  except:
-    raise
- 
-  return True
+def create_instance(snapshot, ssh_public_key_content):
+  user_data_script = """#!/bin/bash
+  echo -n "{}" > /home/admin/.ssh/authorized_keys
+  """.format(ssh_public_key_content)
 
-def create_instance(snapshot, ssh_key_pair):
   instances = aws_ec2.run_instances(
     DisableApiTermination=False,
     InstanceInitiatedShutdownBehavior='terminate',
@@ -143,13 +136,13 @@ def create_instance(snapshot, ssh_key_pair):
     ],
     ImageId=get_latest_debian_ami_id(),
     InstanceType='t2.micro', 
-    KeyName=ssh_key_pair,
     MaxCount=1,
+    UserData=user_data_script,
     MinCount=1,
     TagSpecifications=[{
       'ResourceType': 'instance',
       'Tags': [
-        {'Key': 'Name', 'Value': 'AwsSnapshotRecovery ({}) ({})'.format(ssh_key_pair, snapshot['SnapshotId'])},
+        {'Key': 'Name', 'Value': 'AwsSnapshotRecovery ({}) ({})'.format(ssh_public_key, snapshot['SnapshotId'])},
         {'Key': 'AwsSnapshotRecovery', 'Value': 'true'},
         {'Key': 'AwsSnapshotRecovery_SnapshotId', 'Value': snapshot['SnapshotId']}
       ]
@@ -199,14 +192,18 @@ if args.recover:
     exit(1)
   snapshot = snapshots[0]
 
-  logging.info("retrieving ssh key '{}'".format(config['ssh_key_pair']))
-  if not ssh_key_pair_exists(config['ssh_key_pair']):
-    logging.error('ssh key "{}" does not exist'.format(config['ssh_key_pair']))
-    logging.error('you need to add this ssh key to aws key pair')
+  ssh_public_key = pathlib.PosixPath(config['ssh_public_key']).expanduser()
+  if not ssh_public_key.exists():
+    logging.error('ssh key "{}" does not exist'.format(str(ssh_public_key)))
+    exit(1)
+
+  ssh_public_key_content = ssh_public_key.read_text()
+  if "PRIVATE KEY" in ssh_public_key_content:
+    logging.error('ssh key "{}" is not a public key.'.format(str(ssh_public_key)))
     exit(1)
 
   logging.info('creating and starting instance from snapshot "{}"'.format(snapshot['SnapshotId']))
-  instance = create_instance(snapshot, config['ssh_key_pair'])  
+  instance = create_instance(snapshot, ssh_public_key_content)  
   instance_resource = boto3.resource('ec2').Instance(instance['InstanceId'])
 
   logging.debug('registering SIGINT and SIGTERM signal')
@@ -231,7 +228,7 @@ if args.recover:
 
 
   logging.debug('printing out login information')
-  print('you can login with: "ssh admin@{ip} -i ~/.ssh/{key}.pem"'.format(ip=instance['PublicIpAddress'], key=config['ssh_key_pair']))
+  print('you can login with: "ssh admin@{ip} -i {key}"'.format(ip=instance['PublicIpAddress'], key=config['ssh_public_key']))
   print('kill this script when done (ctrl+c)')
 
   logging.debug('waiting for instance to be terminated')
