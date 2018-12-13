@@ -23,7 +23,7 @@ config = {
   'ssh_command': False,
   'ec2_security_group_id': '',
   'ec2_subnet_id': '',
-  'ec2__instance_type': 't2-micro'
+  'ec2_instance_type': 't3.micro'
 }
 
 def parse_args():
@@ -92,6 +92,8 @@ def parse_configuration_cli(config):
     config['ec2_subnet_id'] = args.ec2_subnet_id
   if args.ec2_security_group_id:
     config['ec2_security_group_id'] = args.ec2_security_group_id
+  if args.ec2_instance_type:
+    config['ec2_instance_type'] = args.ec2_instance_type
   if args.aws_profile:
     config['aws_profile'] = args.aws_profile
   return config
@@ -146,7 +148,7 @@ def create_instance(snapshot, ssh_public_key_content):
         },
     ],
     ImageId=get_latest_debian_ami_id(),
-    InstanceType='t2.micro', 
+    InstanceType=config['ec2_instance_type'], 
     MaxCount=1,
     UserData=user_data_script,
     MinCount=1,
