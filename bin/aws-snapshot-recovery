@@ -85,7 +85,7 @@ def parse_configuration_cli(config):
   if args.ssh_public_key:
     config['ssh_public_key'] = args.ssh_public_key
   if args.ssh_private_key:
-    config['ssh_public_key'] = args.ssh_public_key
+    config['ssh_private_key'] = args.ssh_private_key
   if args.ssh_command:
     config['ssh_command'] = args.ssh_command
   if args.ec2_subnet_id:
