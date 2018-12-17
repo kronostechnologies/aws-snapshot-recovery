@@ -12,15 +12,18 @@ import logging
 import getpass
 import time
 import signal
+import pxssh
 
 config = {
   'aws_profile': 'default',
   'filter_date_tagkey': 'EbsBackup_DatetimeUTC',
   'filter_name_tagkey': 'Name',
   'ssh_public_key': '/home/{0}/.ssh/{0}.pem.pub'.format(getpass.getuser()),
+  'ssh_private_key': '/home/{0}/.ssh/{0}.pem'.format(getpass.getuser()),
+  'ssh_command': False,
   'ec2_security_group_id': '',
   'ec2_subnet_id': '',
-  'ec2__instance_type': 't2-micro'
+  'ec2_instance_type': 't3.micro'
 }
 
 def parse_args():
@@ -37,6 +40,8 @@ def parse_args():
   parser.add_argument('--ec2-subnet-id', metavar="ID", help='set the ec2 subnet id')
   parser.add_argument('--ec2-instance-type', metavar="TYPE", help='set the ec2 instance type')
   parser.add_argument('--ssh-public-key', metavar="PUBLIC_KEY", help='specify the ssh public key to use for login')
+  parser.add_argument('--ssh-private-key', metavar="PRIVATE_KEY", help='specify the ssh private key to use for login')
+  parser.add_argument('--ssh-command', metavar="COMMAND", default='', help='execute a command on the ec2 then shut down. Only use this if you want to automation. You will also need to specify the private key')
   parser.add_argument('--aws-profile', metavar="PROFILE", help='specify the aws profile to use')
   return parser.parse_args()
 
@@ -63,6 +68,8 @@ def parse_configuration_environment(config):
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_FILTER_DATE_TAGKEY', 'filter_date_tagkey')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_FILTER_NAME_TAGKEY', 'filter_name_tagkey')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_SSH_PUBLIC_KEY', 'ssh_public_key')
+  merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_SSH_PRIVATE_KEY', 'ssh_private_key')
+  merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_SSH_COMMAND', 'ssh_command')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_SECURITY_GROUP_ID', 'ec2_security_group_id')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_SUBNET_ID', 'ec2_subnet_id')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_INSTANCE_TYPE', 'ec2_instance_type')
@@ -77,10 +84,16 @@ def parse_configuration_cli(config):
     config['filter_name_tagkey'] = args.filter_name_tagkey
   if args.ssh_public_key:
     config['ssh_public_key'] = args.ssh_public_key
+  if args.ssh_private_key:
+    config['ssh_private_key'] = args.ssh_private_key
+  if args.ssh_command:
+    config['ssh_command'] = args.ssh_command
   if args.ec2_subnet_id:
     config['ec2_subnet_id'] = args.ec2_subnet_id
   if args.ec2_security_group_id:
     config['ec2_security_group_id'] = args.ec2_security_group_id
+  if args.ec2_instance_type:
+    config['ec2_instance_type'] = args.ec2_instance_type
   if args.aws_profile:
     config['aws_profile'] = args.aws_profile
   return config
@@ -135,7 +148,7 @@ def create_instance(snapshot, ssh_public_key_content):
         },
     ],
     ImageId=get_latest_debian_ami_id(),
-    InstanceType='t2.micro', 
+    InstanceType=config['ec2_instance_type'], 
     MaxCount=1,
     UserData=user_data_script,
     MinCount=1,
@@ -193,6 +206,7 @@ if args.recover:
   snapshot = snapshots[0]
 
   ssh_public_key = pathlib.PosixPath(config['ssh_public_key']).expanduser()
+  logging.info('using "{key}"'.format(key=config['ssh_public_key']))
   if not ssh_public_key.exists():
     logging.error('ssh key "{}" does not exist'.format(str(ssh_public_key)))
     exit(1)
@@ -226,13 +240,23 @@ if args.recover:
   logging.info('instance created successfully')
   instance = aws_ec2.describe_instances(InstanceIds=[instance['InstanceId']])['Reservations'][0]['Instances'][0]
 
-
   logging.debug('printing out login information')
   print('you can login with: "ssh admin@{ip} -i {key}"'.format(ip=instance['PublicIpAddress'], key=config['ssh_public_key']))
-  print('kill this script when done (ctrl+c)')
-
-  logging.debug('waiting for instance to be terminated')
-  signal.pause()
+  print('kill this script (ctrl+c) to terminate gracefully')
+  if config['ssh_command']:
+    print('executing ssh command "{cmd}"'.format(cmd=config['ssh_command']))
+    s = pxssh.pxssh(options={
+      "StrictHostKeyChecking": "no",
+      "UserKnownHostsFile": "/dev/null"
+    })
+    s.login(instance['PublicIpAddress'], 'admin', ssh_key=config['ssh_private_key'])
+    s.sendline(config['ssh_command'])
+    s.prompt()
+    print(s.before.decode('utf8'))
+    s.logout()
+    exit_gracefully(None, None)
+  else:
+    signal.pause()
   
 else:
   snapshots = fetch_snapshots(args.date, args.name)

@@ -14,7 +14,8 @@ usage: aws-snapshot-recovery [-h] [-d DATE] [-n NAME] [-r] [--dry-run] [-v]
                              [--ec2-security-group-id ID] [--ec2-subnet-id ID]
                              [--ec2-instance-type TYPE]
                              [--ssh-public-key PUBLIC_KEY]
-                             [--aws-profile PROFILE]
+                             [--ssh-private-key PRIVATE_KEY]
+                             [--ssh-command COMMAND] [--aws-profile PROFILE]
 
 Amazon Snapshot Recovery Tool
 
@@ -38,6 +39,12 @@ optional arguments:
                         set the ec2 instance type
   --ssh-public-key PUBLIC_KEY
                         specify the ssh public key to use for login
+  --ssh-private-key PRIVATE_KEY
+                        specify the ssh private key to use for login
+  --ssh-command COMMAND
+                        execute a command on the ec2 then shut down. Only use
+                        this if you want to automation. You will also need to
+                        specify the private key
   --aws-profile PROFILE
                         specify the aws profile to use
 ```
@@ -53,12 +60,16 @@ Define the tag key used to filter on snapshot date. Default is "EbsBackup_Dateti
 Define the tag key used to filter on the snapshot name. Default is "Name".
 #### AWS_SNAPSHOT_RECOVERY_SSH_PUBLIC_KEY
 Define the ssh public key to use when creating the ec2 instance. Default is `/home/${USER}/.ssh/${USER}.pem.pub`.
+#### AWS_SNAPSHOT_RECOVERY_SSH_PRIVATE_KEY
+Define the ssh private key to use when connecting to execute remote ssh command. Default is `/home/${USER}/.ssh/${USER}.pem`.
+#### AWS_SNAPSHOT_RECOVERY_SSH_COMMAND
+Define the ssh command to execute as soon as the ec2 is ready. When the command is finished, terminate the instance.
 #### AWS_SNAPSHOT_RECOVERY_EC2_SECURITY_GROUP_ID
 Define the security group id. Default is the "default" security group.
 #### AWS_SNAPSHOT_RECOVERY_EC2_SUBNET_ID
 Define the ec2 subnet id. Default will use the default subnet of the default vpc.
 #### AWS_SNAPSHOT_RECOVERY_EC2_INSTANCE_TYPE
-Define the ec2 instance type. Default is "t2-micro".
+Define the ec2 instance type. Default is "t2.micro".
 
 ### Yaml
 The yaml configuration file will be read from `~/.config/aws-snapshot-recovery.yaml`
