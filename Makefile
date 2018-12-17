@@ -11,7 +11,7 @@ clean:
 
 .PHONY: docker
 docker:
-	docker build . -t kronostechnologies/aws-snapshot-recovery:2.0.1
+	docker build . -t kronostechnologies/aws-snapshot-recovery:3.0.0
 
 .PHONY: dev
 dev: /usr/local/bin/aws-snapshot-recovery
