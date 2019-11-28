@@ -101,7 +101,8 @@ def parse_configuration_cli(config):
 def get_latest_debian_ami_id():
   amis = aws_ec2_resource.images.filter(
     Filters=[
-      {'Name':'owner-id', 'Values':['379101102735']}
+      {'Name':'owner-id', 'Values':['379101102735']},
+      {'Name':'architecture', 'Values': ['x86_64']},
     ]
   )
   return sorted(list(amis), key=lambda image:image.creation_date)[-1].id
