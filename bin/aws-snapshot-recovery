@@ -12,7 +12,7 @@ import logging
 import getpass
 import time
 import signal
-import pxssh
+from pexpect import pxssh
 
 config = {
   'aws_profile': 'default',
@@ -51,7 +51,7 @@ def parse_configuration_file(config):
   configpath = pathlib.PosixPath('~/.config/aws-snapshot-recovery.yaml').expanduser()
   if configpath.exists():
     with configpath.open() as stream:
-      config.update(yaml.load(stream))
+      config.update(yaml.full_load(stream))
       logging.debug('configuration file "{}" exist and has been parsed'.format(configpath))
   else:
     logging.info('configuration file "{}" does not exist'.format(configpath))
