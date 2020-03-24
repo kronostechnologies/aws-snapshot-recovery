@@ -32,7 +32,7 @@ optional arguments:
                         set the tag key to use when filtering with --name
   --filter-date-tagkey TAGNAME
                         set the tag key to use when filtering with --date
-  --ec2-security-group-id ID
+  --ec2-security-group-id ID [ID ...]
                         set the ec2 security group id
   --ec2-subnet-id ID    set the ec2 subnet id
   --ec2-instance-type TYPE
@@ -67,7 +67,7 @@ Define the ssh command to execute as soon as the ec2 is ready. When the command 
 #### AWS_SNAPSHOT_RECOVERY_EC2_SECURITY_GROUP_ID
 Define the security group id. Default is the "default" security group.
 #### AWS_SNAPSHOT_RECOVERY_EC2_SUBNET_ID
-Define the ec2 subnet id. Default will use the default subnet of the default vpc.
+Define the ec2 subnet id. Can specify multiple value e.g. `sg-4391,sg-2184`. Default will use the default subnet of the default vpc. 
 #### AWS_SNAPSHOT_RECOVERY_EC2_INSTANCE_TYPE
 Define the ec2 instance type. Default is "t2.micro".
 
@@ -188,6 +188,6 @@ git checkout master && git branch -D 1.0.1 && git checkout 1.0.1
 ```
 Once the tag is pushed, reach the [release page](https://github.com/kronostechnologies/aws-snapshot-recovery/releases) via github and click "draft a new release".
 1. Use the newly created tag (1.0.1 in this example) as the new version.
-2. The release title should be related to electronic parts. major version (2.0.0, 3.0.0, etc.) must have one word title e.g. "Diodes". Minor and Patch version must have two word with the first word being the major release version title e.g. Diodes Gunn. Second word must be related to first word electronic part.
+2. The release title should be related to electronic parts or physics in general. Major version (2.0.0, 3.0.0, etc.) must have one word title e.g. "Diodes". Minor and Patch version must have two word with the first word being the major release version title e.g. Diodes Gunn. Second word must be related to first word electronic part.
 3. Describe what is in the new release
 4. Add two binaries: `bin/aws-snapshot-recovery` and `bin/docker-aws-snapshot-recovery`. Make sure you are using the binary of the new version by checkouting the newly created tag (`git checkout 1.0.1`).

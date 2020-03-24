@@ -12,7 +12,7 @@ import logging
 import getpass
 import time
 import signal
-import pxssh
+from pexpect import pxssh
 
 config = {
   'aws_profile': 'default',
@@ -21,7 +21,7 @@ config = {
   'ssh_public_key': '/home/{0}/.ssh/{0}.pem.pub'.format(getpass.getuser()),
   'ssh_private_key': '/home/{0}/.ssh/{0}.pem'.format(getpass.getuser()),
   'ssh_command': False,
-  'ec2_security_group_id': '',
+  'ec2_security_group_id': [],
   'ec2_subnet_id': '',
   'ec2_instance_type': 't3.micro'
 }
@@ -36,7 +36,7 @@ def parse_args():
   parser.add_argument('--debug', action='store_true', help='greatly increase output verbosity')
   parser.add_argument('--filter-name-tagkey', metavar="TAGNAME", help='set the tag key to use when filtering with --name')
   parser.add_argument('--filter-date-tagkey', metavar="TAGNAME", help='set the tag key to use when filtering with --date')
-  parser.add_argument('--ec2-security-group-id', metavar="ID", help='set the ec2 security group id')
+  parser.add_argument('--ec2-security-group-id', metavar="ID", nargs='+', help='set the ec2 security group id')
   parser.add_argument('--ec2-subnet-id', metavar="ID", help='set the ec2 subnet id')
   parser.add_argument('--ec2-instance-type', metavar="TYPE", help='set the ec2 instance type')
   parser.add_argument('--ssh-public-key', metavar="PUBLIC_KEY", help='specify the ssh public key to use for login')
@@ -51,7 +51,7 @@ def parse_configuration_file(config):
   configpath = pathlib.PosixPath('~/.config/aws-snapshot-recovery.yaml').expanduser()
   if configpath.exists():
     with configpath.open() as stream:
-      config.update(yaml.load(stream))
+      config.update(yaml.full_load(stream))
       logging.debug('configuration file "{}" exist and has been parsed'.format(configpath))
   else:
     logging.info('configuration file "{}" does not exist'.format(configpath))
@@ -60,17 +60,19 @@ def parse_configuration_file(config):
 def parse_configuration_environment(config):
   logging.debug('parsing environment variables')
 
-  def merge_environ_into_config(environment_variable, config_key):
+  def merge_environ_into_config(environment_variable, config_key, split = False):
     if environment_variable in os.environ:
       logging.debug('environment variable "{}" is set and will be used'.format(environment_variable))
       config[config_key] = os.environ[environment_variable]
+      if split:
+        config[config_key] = config[config_key].split(split)
 
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_FILTER_DATE_TAGKEY', 'filter_date_tagkey')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_FILTER_NAME_TAGKEY', 'filter_name_tagkey')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_SSH_PUBLIC_KEY', 'ssh_public_key')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_SSH_PRIVATE_KEY', 'ssh_private_key')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_SSH_COMMAND', 'ssh_command')
-  merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_SECURITY_GROUP_ID', 'ec2_security_group_id')
+  merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_SECURITY_GROUP_ID', 'ec2_security_group_id', ',')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_SUBNET_ID', 'ec2_subnet_id')
   merge_environ_into_config('AWS_SNAPSHOT_RECOVERY_EC2_INSTANCE_TYPE', 'ec2_instance_type')
   merge_environ_into_config('AWS_PROFILE', 'aws_profile')
@@ -137,7 +139,7 @@ def create_instance(snapshot, ssh_public_key_content):
   instances = aws_ec2.run_instances(
     DisableApiTermination=False,
     InstanceInitiatedShutdownBehavior='terminate',
-    SecurityGroupIds=[config['ec2_security_group_id']] if config['ec2_security_group_id'] else [],
+    SecurityGroupIds=config['ec2_security_group_id'] if config['ec2_security_group_id'] else [],
     SubnetId=config['ec2_subnet_id'] if config['ec2_subnet_id'] else '',
     BlockDeviceMappings=[
         {
@@ -242,7 +244,7 @@ if args.recover:
   instance = aws_ec2.describe_instances(InstanceIds=[instance['InstanceId']])['Reservations'][0]['Instances'][0]
 
   logging.debug('printing out login information')
-  print('you can login with: "ssh admin@{ip} -i {key}"'.format(ip=instance['PublicIpAddress'], key=config['ssh_public_key']))
+  print('you can login with: "ssh admin@{ip} -i {key}"'.format(ip=instance['PublicIpAddress'], key=config['ssh_private_key']))
   print('kill this script (ctrl+c) to terminate gracefully')
   if config['ssh_command']:
     print('executing ssh command "{cmd}"'.format(cmd=config['ssh_command']))
