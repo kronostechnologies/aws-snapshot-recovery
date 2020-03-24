@@ -32,7 +32,7 @@ optional arguments:
                         set the tag key to use when filtering with --name
   --filter-date-tagkey TAGNAME
                         set the tag key to use when filtering with --date
-  --ec2-security-group-id ID
+  --ec2-security-group-id ID [ID ...]
                         set the ec2 security group id
   --ec2-subnet-id ID    set the ec2 subnet id
   --ec2-instance-type TYPE
@@ -67,7 +67,7 @@ Define the ssh command to execute as soon as the ec2 is ready. When the command 
 #### AWS_SNAPSHOT_RECOVERY_EC2_SECURITY_GROUP_ID
 Define the security group id. Default is the "default" security group.
 #### AWS_SNAPSHOT_RECOVERY_EC2_SUBNET_ID
-Define the ec2 subnet id. Default will use the default subnet of the default vpc.
+Define the ec2 subnet id. Can specify multiple value e.g. `sg-4391,sg-2184`. Default will use the default subnet of the default vpc. 
 #### AWS_SNAPSHOT_RECOVERY_EC2_INSTANCE_TYPE
 Define the ec2 instance type. Default is "t2.micro".
 
