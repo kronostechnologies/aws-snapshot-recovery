@@ -242,7 +242,7 @@ if args.recover:
   instance = aws_ec2.describe_instances(InstanceIds=[instance['InstanceId']])['Reservations'][0]['Instances'][0]
 
   logging.debug('printing out login information')
-  print('you can login with: "ssh admin@{ip} -i {key}"'.format(ip=instance['PublicIpAddress'], key=config['ssh_public_key']))
+  print('you can login with: "ssh admin@{ip} -i {key}"'.format(ip=instance['PublicIpAddress'], key=config['ssh_private_key']))
   print('kill this script (ctrl+c) to terminate gracefully')
   if config['ssh_command']:
     print('executing ssh command "{cmd}"'.format(cmd=config['ssh_command']))
