@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION='latest'
+VERSION='4.0.0'
 
 if ! docker image inspect "kronostechnologies/aws-snapshot-recovery:${VERSION}" &> /dev/null; then
   docker pull "kronostechnologies/aws-snapshot-recovery:${VERSION}"
