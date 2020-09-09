@@ -2,8 +2,8 @@
 
 VERSION='latest'
 
-if ! docker image inspect "kronostechnologies/aws-snapshot-recovery:${VERSION}" &> /dev/null; then
-  docker pull "kronostechnologies/aws-snapshot-recovery:${VERSION}"
+if ! docker image inspect "ghcr.io/kronostechnologies/aws-snapshot-recovery:${VERSION}" &> /dev/null; then
+  docker pull "ghcr.io/kronostechnologies/aws-snapshot-recovery:${VERSION}"
 fi
 
 declare -a FLAGS=( --rm --read-only )
@@ -29,4 +29,4 @@ if [[ -n "${AWS_PROFILE}" ]]; then
 fi
 FLAGS+=( -e AWS_SNAPSHOT_RECOVERY_SSH_KEY_PAIR="${USER}" )
 
-docker run "${FLAGS[@]}" "kronostechnologies/aws-snapshot-recovery:${VERSION}" "$@"
+docker run "${FLAGS[@]}" "ghcr.io/kronostechnologies/aws-snapshot-recovery:${VERSION}" "$@"
