@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION='latest'
+VERSION='5.0.0'
 
 if ! docker image inspect "ghcr.io/kronostechnologies/aws-snapshot-recovery:${VERSION}" &> /dev/null; then
   docker pull "ghcr.io/kronostechnologies/aws-snapshot-recovery:${VERSION}"
