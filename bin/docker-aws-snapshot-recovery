@@ -24,9 +24,10 @@ if [[ -t 1 ]]; then
   FLAGS+=( --interactive --tty )
 fi
 
-if [[ -n "${AWS_PROFILE}" ]]; then
-  FLAGS+=( -e AWS_PROFILE="${AWS_PROFILE}" )
-fi
-FLAGS+=( -e AWS_SNAPSHOT_RECOVERY_SSH_KEY_PAIR="${USER}" )
+for V in $(env | grep "^AWS_" | awk -F= '{print $1}'); do
+  if [[ -n "${!V}" ]]; then
+    FLAGS+=( -e ${V}="${!V}" )
+  fi
+done
 
 docker run "${FLAGS[@]}" "ghcr.io/kronostechnologies/aws-snapshot-recovery:${VERSION}" "$@"
